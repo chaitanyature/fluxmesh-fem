@@ -7,7 +7,7 @@ import tempfile
 
 import numpy as np
 
-from .cases import CASES
+from .input import problem_from
 from .mesh import Mesh
 
 
@@ -81,7 +81,7 @@ def audit(dest, tol=1e-8):
     info = json.loads((dest / "run.json").read_text())
     if info["format"] != 1:
         raise ValueError("unknown run format")
-    problem = CASES[info["settings"]["case"]]
+    problem = problem_from(info["settings"]["case"], info["settings"].get("initial", 4))
     with np.load(dest / "field.npz", allow_pickle=False) as arrays:
         mesh = Mesh(arrays["points"], arrays["triangles"])
         val, flux, eta = arrays["values"], arrays["flux"], arrays["indicator"]
@@ -132,7 +132,9 @@ def audit(dest, tol=1e-8):
         "free_residual": float(np.max(abs(res[free]), initial=0)),
         "boundary_values": float(
             np.max(
-                np.abs(val[mesh.boundary] - problem.exact(mesh.points[mesh.boundary]))
+                np.abs(
+                    val[mesh.boundary] - problem.boundary(mesh.points[mesh.boundary])
+                )
             )
         ),
         "flux_disagreement": float(np.max(np.abs(predicted - flux))),
@@ -142,16 +144,20 @@ def audit(dest, tol=1e-8):
             float(np.linalg.norm(eta)) - info["metrics"]["estimator"]
         ),
     }
-    energy = float(
-        np.sqrt(
-            np.sum(
-                mesh.area
-                * k
-                * (np.sum((grad[:, None, :] - problem.gradient(xyq)) ** 2, axis=2) @ W)
+    if problem.gradient is not None:
+        energy = float(
+            np.sqrt(
+                np.sum(
+                    mesh.area
+                    * k
+                    * (
+                        np.sum((grad[:, None, :] - problem.gradient(xyq)) ** 2, axis=2)
+                        @ W
+                    )
+                )
             )
         )
-    )
-    fields["energy_disagreement"] = abs(energy - info["metrics"]["energy_error"])
+        fields["energy_disagreement"] = abs(energy - info["metrics"]["energy_error"])
     counts_ok = (
         info["metrics"]["triangles"] == len(T)
         and info["metrics"]["vertices"] == len(val)

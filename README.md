@@ -23,6 +23,15 @@ Python 3.10+ is required. Each solve publishes a fresh directory with the final 
 
 ## The numerical problem
 
+### Solve a custom plate
+
+```sh
+fluxmesh solve examples/laminated-plate.json --initial 4 --steps 5 --out plate-run
+fluxmesh audit plate-run
+```
+
+The example places a localized heat source and sink on a two-material square plate. In the input JSON, `boundary: [a,b,c]` sets u = a + bx + cy on the perimeter. Each source has an amplitude, a center and a positive Gaussian width. Conductivities are positive constants between vertical breakpoints. Put each breakpoint on an initial grid line so that all descendant elements stay inside one material. The saved run contains the complete input configuration. You can move it and audit the exported field after removing the original input file. Custom runs report residuals and estimated error; analytic error columns are available for the manufactured benchmarks.
+
 We solve −div(k grad u) = f with prescribed Dirichlet values on the whole boundary. For linear triangle basis functions the element stiffness is the triangle area times conductivity times the dot product of the two basis gradients. Dirichlet elimination retains a symmetric positive-definite system on the free degrees of freedom. Sparse assembly and the direct solve use SciPy. Mesh construction, local element operators, adaptivity, and verification are implemented here.
 
 | Built-in case | Exact check |

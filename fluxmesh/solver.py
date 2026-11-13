@@ -4,7 +4,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse.linalg import spsolve
 
 from .mesh import Mesh
-from .cases import CASES
+from .input import problem_from
 
 
 # Symmetric seven-point triangle quadrature, exact for polynomials through degree five.
@@ -53,7 +53,7 @@ def solve(mesh, problem):
     b = np.bincount(cells.ravel(), weights=rhs.ravel(), minlength=len(mesh.points))
     u = np.zeros(len(mesh.points))
     boundary = mesh.boundary
-    u[boundary] = problem.exact(mesh.points[boundary])
+    u[boundary] = problem.boundary(mesh.points[boundary])
     free = np.setdiff1d(np.arange(len(u)), boundary)
     if len(free):
         u[free] = spsolve(K[free][:, free], (b - K @ u)[free])
@@ -69,22 +69,24 @@ def solve(mesh, problem):
     edge_int = 0.5 * mesh.length[interior] ** 2 * jumps**2
     np.add.at(eta2, lhs, edge_int)
     np.add.at(eta2, rhs_cell, edge_int)
-    values_q = u[cells] @ Q.T
-    l2 = np.sum(mesh.area * ((values_q - problem.exact(quadrature)) ** 2 @ W))
-    error = grad[:, None, :] - problem.gradient(quadrature)
-    energy = np.sum(mesh.area * k * (np.sum(error**2, axis=2) @ W))
     residual = K @ u - b
     # Summing all boundary reactions balances the integrated source for this Dirichlet problem.
     metrics = {
         "vertices": len(u),
         "triangles": len(cells),
         "free_dofs": len(free),
-        "energy_error": float(np.sqrt(energy)),
-        "l2_error": float(np.sqrt(l2)),
         "estimator": float(np.sqrt(eta2.sum())),
         "max_free_residual": float(np.max(np.abs(residual[free]), initial=0)),
         "global_balance_error": float(abs(residual[boundary].sum() + b.sum())),
     }
+    if problem.gradient is not None:
+        # For manufactured cases the Dirichlet function extends to the exact field.
+        l2 = np.sum(
+            mesh.area * ((u[cells] @ Q.T - problem.boundary(quadrature)) ** 2 @ W)
+        )
+        error = grad[:, None, :] - problem.gradient(quadrature)
+        energy = np.sum(mesh.area * k * (np.sum(error**2, axis=2) @ W))
+        metrics.update(energy_error=float(np.sqrt(energy)), l2_error=float(np.sqrt(l2)))
     if not np.isfinite(list(metrics.values())).all():
         raise ValueError("nonfinite solution")
     return Solution(mesh, u, flux, np.sqrt(eta2), metrics)
@@ -117,14 +119,13 @@ def run(
         steps < 0
         or steps > 16
         or mode not in ("adaptive", "uniform")
-        or case not in CASES
         or not 0 < theta <= 1
         or max_cells < 1
     ):
         raise ValueError("invalid refinement options")
     if case == "interface" and initial % 2:
         raise ValueError("interface requires even grid resolution")
-    problem = CASES[case]
+    problem = problem_from(case, initial)
     mesh = Mesh.grid(initial, problem.domain)
     history = []
     if len(mesh.cells) > max_cells:

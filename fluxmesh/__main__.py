@@ -13,7 +13,7 @@ def main():
     )
     sub = p.add_subparsers(dest="command", required=True)
     runp = sub.add_parser("solve")
-    runp.add_argument("case", choices=CASES)
+    runp.add_argument("case", help="smooth, interface, corner or a JSON problem file")
     runp.add_argument("--initial", type=int, default=4)
     runp.add_argument("--steps", type=int, default=5)
     runp.add_argument("--theta", type=float, default=0.55)
@@ -34,6 +34,8 @@ def main():
             settings = {
                 k: v for k, v in vars(args).items() if k not in ("out", "command")
             }
+            if args.case not in CASES:
+                settings["case"] = json.loads(Path(args.case).read_text())
             solution, history = run(**settings)
             bundle(args.out, solution, history, settings)
             result = solution.metrics

@@ -8,7 +8,7 @@ class Problem:
     domain: str
     conductivity: object
     source: object
-    exact: object
+    boundary: object
     gradient: object
 
 

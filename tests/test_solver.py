@@ -64,7 +64,7 @@ class MeshChecks(unittest.TestCase):
         sol, history = run("interface", steps=5)
         self.assertEqual(len(history), 1)
         np.testing.assert_allclose(
-            sol.values, CASES["interface"].exact(sol.mesh.points), atol=1e-12
+            sol.values, CASES["interface"].boundary(sol.mesh.points), atol=1e-12
         )
         self.assertLess(abs(sol.flux[:, 0] + 1).max(), 1e-12)
         with self.assertRaisesRegex(ValueError, "even"):

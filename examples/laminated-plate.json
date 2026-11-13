@@ -1,0 +1,7 @@
+{
+  "domain":"square",
+  "material":{"x_breaks":[0.5],"conductivities":[1.0,4.0]},
+  "boundary":[20.0,0.0,0.0],
+  "sources":[{"center":[0.33,0.58],"sigma":0.095,"amplitude":400.0},
+             {"center":[0.76,0.25],"sigma":0.15,"amplitude":-50.0}]
+}
